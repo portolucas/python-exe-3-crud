@@ -1,11 +1,9 @@
+from .models.Form import FormularioPessoa, FormularioEditarDepartamento, FormularioDeletarPessoa
+from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from .models.Pessoa import Pessoa, Departamento
 from django.template import loader
-
-
-def indice(request):
-    return HttpResponse("Hello, world. asdasdas")
 
 
 def pessoa(request, idpessoa):
@@ -39,46 +37,78 @@ def create(request, nome, sobrenome, idade, escolaridade, dpto_descricao):
     novaPessoa.depto_atual_id = novoDepartamento.id
     novaPessoa.save()
 
-    return JsonResponse(
-        {
-            "Pessoa criada": [
-                {"nome": novaPessoa.nome, "Departamento": dpto_descricao.upper()}
-            ]
-        }
-    )
 
-
-def update(request, id, dpto_descricao):
+def update(request, nome, dpto_descricao):
     novoDepartamento = Departamento(
         sigla=dpto_descricao[0].upper(), descricao=dpto_descricao.upper()
     )
     novoDepartamento.save()
-    pessoa = Pessoa.objects.get(pk=id)
+    pessoa = Pessoa.objects.get(nome=nome)
     pessoa.depto_atual_id = novoDepartamento.id
     pessoa.save()
-    return JsonResponse(
-        {
-            "Departamento atualizado": [
-                {
-                    "nome": pessoa.nome,
-                    "novo-departamento": novoDepartamento.descricao.upper(),
-                }
-            ]
-        }
-    )
 
 
-def delete(request, id):
-    Pessoa.objects.filter(pk=id).delete()
-    return JsonResponse({"Deleted": True})
+def delete(request, nome):
+    Pessoa.objects.get(nome=nome).delete()
 
 
-def testeJson(request):
-    payload = {
-        "lista": [
-            {"nome": "matheus", "sobrenome": "souza"},
-            {"nome": "pedro", "sobrenome": "silva"},
-        ]
-    }
+def createPessoa(request):
+    # if this is a POST request we need to process the form data
+    if request.method == 'POST':
+        # create a form instance and populate it with data from the request:
+        form = FormularioPessoa(request.POST)
+        # check whether it's valid:
+        if form.is_valid():
 
-    return JsonResponse(payload)
+            nome = form.cleaned_data['nome']
+            sobrenome = form.cleaned_data['sobrenome']
+            idade = form.cleaned_data['idade']
+            escolaridade = form.cleaned_data['escolaridade']
+            depto = form.cleaned_data['depto']
+
+            create(request, nome, sobrenome, idade, escolaridade, depto)
+
+            return JsonResponse({"pessoa_criada": form.cleaned_data})
+
+    # if a GET (or any other method) we'll create a blank form
+    else:
+        form = FormularioPessoa()
+
+    return render(request, "pessoa/home.html", {'form': form})
+
+
+def editPessoa(request):
+    if request.method == 'POST':
+        form = FormularioEditarDepartamento(request.POST)
+
+        if form.is_valid():
+
+            nome = form.cleaned_data['nome']
+            novo_departamento = form.cleaned_data['novo_departamento']
+
+            update(request, nome, novo_departamento)
+
+            return JsonResponse({"pessoa_editada": form.cleaned_data})
+
+    else:
+        form = FormularioEditarDepartamento()
+
+    return render(request, "pessoa/editarDepartamento.html", {'form': form})
+
+
+def deletePessoa(request):
+    if request.method == 'POST':
+        form = FormularioDeletarPessoa(request.POST)
+
+        if form.is_valid():
+
+            nome = form.cleaned_data['nome']
+
+            delete(request, nome)
+
+            return JsonResponse({"pessoa_excluída": form.cleaned_data})
+
+    else:
+        form = FormularioDeletarPessoa()
+
+    return render(request, "pessoa/deletarPessoa.html", {'form': form})
